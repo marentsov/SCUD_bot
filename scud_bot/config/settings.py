@@ -14,6 +14,9 @@ import os
 import sys
 from pathlib import Path
 
+from dotenv import load_dotenv
+
+load_dotenv()
 # Добавляем текущую директорию в PYTHONPATH
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
@@ -121,7 +124,7 @@ SKUD_CONFIG = {
 }
 
 # Настройки для бота
-TELEGRAM_BOT_TOKEN = '8311922523:AAELbxhIHOkIVhkC1jJuiawb7eYizydE5j8'
+TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
 TELEGRAM_POLL_INTERVAL = 2
 
 # Логирование
