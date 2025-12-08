@@ -27,11 +27,11 @@ class Command(BaseCommand):
 
         # Проверяем настройки
         if not settings.SKUD_CONFIG.get('SESSION_COOKIE'):
-            logger.error("❌ Не настроен SESSION_COOKIE в settings.py")
+            logger.error("Не настроен SESSION_COOKIE в settings.py")
             return
 
-        logger.info(f"🌐 URL: {settings.SKUD_CONFIG['BASE_URL']}")
-        logger.info(f"⏱️ Интервал: {settings.SKUD_CONFIG['POLL_INTERVAL']} сек")
+        logger.info(f"URL: {settings.SKUD_CONFIG['BASE_URL']}")
+        logger.info(f"Интервал: {settings.SKUD_CONFIG['POLL_INTERVAL']} сек")
 
         # Создаем и запускаем монитор
         monitor = SKUDMonitor()
@@ -39,6 +39,6 @@ class Command(BaseCommand):
         try:
             monitor.run()
         except KeyboardInterrupt:
-            logger.info("🛑 Мониторинг остановлен пользователем")
+            logger.info("Мониторинг остановлен пользователем")
         except Exception as e:
-            logger.error(f"💥 Ошибка запуска: {e}")
+            logger.error(f"Ошибка запуска - {e}")

@@ -6,5 +6,5 @@ scud_backup.py
 
 *.log
 
-.idea
+.idea/
 

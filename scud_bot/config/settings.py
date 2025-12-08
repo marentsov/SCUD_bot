@@ -120,9 +120,9 @@ SKUD_CONFIG = {
     'PAGE_SIZE': 100,
 }
 
-# Настройки для бота (Telegram) - пока пусто
-TELEGRAM_BOT_TOKEN = ''  # Добавим позже
-TELEGRAM_ADMIN_IDS = []  # ID админов для уведомлений
+# Настройки для бота
+TELEGRAM_BOT_TOKEN = '8311922523:AAELbxhIHOkIVhkC1jJuiawb7eYizydE5j8'
+TELEGRAM_POLL_INTERVAL = 2
 
 # Логирование
 LOGGING = {
