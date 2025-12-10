@@ -1,0 +1,104 @@
+version: '3.8'
+
+services:
+  web:
+    build: .
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=net_squd"
+
+      - "traefik.http.middlewares.scud-www-r.redirectscheme.scheme=https"
+      - "traefik.http.middlewares.scud-www-r.redirectscheme.permanent=true"
+
+
+      - "traefik.http.routers.scud-www.rule=Host(`scud.hubix.org`) || Host(`scud.10.0.0.11`)"
+      - "traefik.http.routers.scud-www.middlewares=hubix-scud-www-r"
+      - "traefik.http.routers.scud-www.entrypoints=http"
+      - "traefik.http.routers.scud-www-ssl.rule=Host(`scud.hubix.org`) || Host(`scud.10.0.0.11`)"
+      - "traefik.http.routers.scud-www-ssl.tls=true"
+      - "traefik.http.routers.scud-www-ssl.tls.certresolver=letsEncrypt"
+      - "traefik.http.routers.scud-www-ssl.entrypoints=https"
+      - "traefik.http.services.scud-www.loadbalancer.server.scheme=http"
+      - "traefik.http.services.scud-www.loadbalancer.server.port=8000"
+
+
+    networks:
+      - net_scud
+      - net_scud_www
+    environment:
+      - DEBUG=False
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - static_volume:/app/staticfiles
+      - media_volume:/app/media
+    env_file:
+      - .env.production
+    restart: unless-stopped
+    command: >
+      sh -c "sleep 10 &&
+             python manage.py migrate &&
+             python manage.py collectstatic --noinput &&  
+             gunicorn scud_bot.config.wsgi:application --bind 0.0.0.0:8000 --workers 3"
+
+  bot:
+    build: .
+    networks:
+      - net_scud
+    env_file:
+      - .env.production
+    restart: unless-stopped
+    command: python manage.py run_bot
+    depends_on:
+      db:
+        condition: service_healthy
+
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+
+  monitor:
+    build: .
+    networks:
+      - net_scud
+    env_file:
+      - .env.production
+    restart: unless-stopped
+    command: python manage.py run_monitor
+    depends_on:
+      db:
+        condition: service_healthy
+      bot:
+        condition: service_started
+
+  db:
+    image: postgres:15
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_DB=scud_db
+      - POSTGRES_USER=scud_user
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hubix_scud_user -d hubix_scud_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - net_scud
+
+volumes:
+  postgres_data:
+  static_volume:
+  media_volume:
+
+networks:
+  net_scud:
+  net_scud_www:
+    driver: overlay
+    external: true

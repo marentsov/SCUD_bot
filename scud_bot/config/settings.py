@@ -77,8 +77,12 @@ WSGI_APPLICATION = 'scud_bot.config.wsgi.application'
 # Database
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': 'scud_db',
+        'USER': 'scud_user',
+        'PASSWORD': 'scud_password',
+        'HOST': 'localhost',
+        'PORT': '5432',
     }
 }
 
@@ -109,7 +113,10 @@ USE_TZ = True
 
 # Static files (CSS, JavaScript, Images)
 STATIC_URL = 'static/'
-STATIC_ROOT = BASE_DIR / 'staticfiles'
+STATIC_ROOT = '/home/marentsov_le/scud_bot_production/staticfiles'
+STATICFILES_DIRS = [
+    BASE_DIR / 'static',
+]
 
 # Default primary key field type
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
@@ -118,8 +125,8 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # Настройки для СКУД системы
 SKUD_CONFIG = {
     'BASE_URL': 'http://188.92.110.218',
-    'SESSION_COOKIE': '8egwro05wfki82hp58ah81uf00p6lue1',  # ТВОЙ КУКИС
-    'POLL_INTERVAL': 10,  # Интервал опроса в секундах
+    'SESSION_COOKIE': os.getenv('SESSION_COOKIE'),
+    'POLL_INTERVAL': 5,  # Интервал опроса в секундах
     'PAGE_SIZE': 100,
 }
 
