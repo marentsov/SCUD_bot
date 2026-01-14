@@ -166,23 +166,21 @@ class SKUDMonitor:
                 skud_id=trans_id,
                 employee=employee,
                 terminal=terminal,
-                punch_time=aware_dt,  # ← ИСПОЛЬЗУЕМ aware datetime
+                punch_time=aware_dt,
                 punch_state=skud_data['punch_state'],
                 verify_type=skud_data['verify_type'],
             )
 
-            # Краткий лог
             logger.info(
                 f"СОХРАНЕНО: ID {trans_id} | Сотр. {emp_code} | {terminal.terminal_alias} | {action} | {punch_time[11:16]}")
 
-            # Уведомления - ДОБАВИМ ЛОГИ ДЛЯ ОТЛАДКИ
             logger.info(f"[УВЕДОМЛЕНИЕ] Проверка условий:")
             logger.info(f"  - can_receive_notifications: {employee.can_receive_notifications}")
             logger.info(f"  - is_monitored: {terminal.is_monitored}")
             logger.info(f"  - telegram_id: {employee.telegram_id}")
 
             if employee.can_receive_notifications and terminal.is_monitored:
-                logger.info(f"[УВЕДОМЛЕНИЕ] Условия выполнены, отправляю...")
+                logger.info(f"[УВЕДОМЛЕНИЕ] Условия выполнены, отправляю")
                 self._send_notification(employee, transaction)
             else:
                 logger.info(f"[УВЕДОМЛЕНИЕ] Условия НЕ выполнены, пропускаю")
@@ -192,91 +190,22 @@ class SKUDMonitor:
             import traceback
             logger.error(traceback.format_exc())
 
-    # def process_transaction(self, skud_data: dict):
-    #     """Обработать одну транзакцию"""
-    #     trans_id = skud_data.get('id')
-    #     emp_code = skud_data.get('emp_code')
-    #     terminal_id = skud_data.get('terminal')
-    #     punch_time = skud_data.get('punch_time', '')[:19]
-    #     action = 'ВХОД' if skud_data.get('punch_state') in ['0', 'I'] else 'ВЫХОД'
-    #
-    #     logger.info(f"Обработка ID {trans_id}: сотр. {emp_code}, терм. {terminal_id}, {action} в {punch_time}")
-    #
-    #     # Проверяем терминал
-    #     if not self._should_process_terminal(terminal_id):
-    #         logger.debug(f"Пропуск терминала {terminal_id}")
-    #         return
-    #
-    #     # Ищем сотрудника
-    #     employee = self._get_employee(emp_code)
-    #     if not employee:
-    #         logger.warning(f"Сотрудник {emp_code} не найден")
-    #         return
-    #
-    #     # Получаем терминал
-    #     terminal = self._get_terminal_or_create(skud_data)
-    #     if not terminal:
-    #         logger.error(f"Не удалось получить терминал {terminal_id}")
-    #         return
-    #
-    #     # Проверяем дубликат
-    #     if Transaction.objects.filter(skud_id=trans_id).exists():
-    #         logger.debug(f"Дубликат ID {trans_id}, пропускаем")
-    #         return
-    #     punch_time_str = skud_data['punch_time']
-    #     try:
-    #         # Создаем naive datetime
-    #         naive_dt = datetime.strptime(punch_time_str, "%Y-%m-%d %H:%M:%S")
-    #         # Делаем aware (с часовым поясом)
-    #         aware_dt = timezone.make_aware(naive_dt, timezone.get_current_timezone())
-    #     except:
-    #         # Если ошибка - используем текущее время
-    #         aware_dt = timezone.now()
-    #         logger.warning(f"Не удалось распарсить время '{punch_time_str}', использую текущее")
-    #
-    #     # Сохраняем транзакцию
-    #     try:
-    #         transaction = Transaction.objects.create(
-    #             skud_id=trans_id,
-    #             employee=employee,
-    #             terminal=terminal,
-    #             punch_time=aware_dt,  # ← ИСПОЛЬЗУЕМ aware datetime
-    #             punch_state=skud_data['punch_state'],
-    #             verify_type=skud_data['verify_type'],
-    #         )
-    #
-    #         # Краткий лог
-    #         logger.info(
-    #             f"СОХРАНЕНО: ID {trans_id} | Сотр. {emp_code} | {terminal.terminal_alias} | {action} | {punch_time[11:16]}")
-    #
-    #         # Уведомления
-    #         if employee.can_receive_notifications and terminal.is_monitored:
-    #             self._send_notification(employee, transaction)
-    #
-    #     except Exception as e:
-    #         logger.error(f"Ошибка сохранения ID {trans_id}: {e}")
-    #         import traceback
-    #         logger.error(traceback.format_exc())
 
     def _send_notification(self, employee: Employee, transaction: Transaction):
         """Отправить уведомление"""
         try:
-
             action = "вход" if transaction.is_entry else "выход"
             location = transaction.terminal.terminal_alias
             time_str = transaction.punch_time.strftime('%H:%M')
             date_str = transaction.punch_time.strftime('%d.%m.%Y')
 
-            message = (
-                f"СКУД Уведомление\n\n"
-                f"{employee.name}\n"
-                f"{location}\n"
-                f"{date_str}\n"
-                f"{time_str}\n"
-                f"{action.upper()}"
-            )
+            # Создаем сообщение в зависимости от типа события
+            if action == "вход":
+                message = f"Вы прибыли на пункт {location} в {time_str} {date_str}"
+            else:  # выход
+                message = f"Вы покинули пункт {location} в {time_str} {date_str}"
 
-            # отправляем через бота
+            # Отправляем через бота
             bot = TelegramBot()
             success = bot.send_message(employee.telegram_id, message)
 

@@ -3,7 +3,7 @@ import time
 
 # Конфигурация
 URL = "http://188.92.110.218/iclock/api/transactions/?format=json&ordering=-id&page_size=10"
-COOKIES = {"sessionid": "8egwro05wfki82hp58ah81uf00p6lue1"}
+COOKIES = {"sessionid": "qq471oqoqg92zxvnxazickyiejh10xuf"}
 
 # Последний известный ID
 last_id = 0

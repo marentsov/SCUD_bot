@@ -11,15 +11,15 @@ services:
       - "traefik.http.middlewares.scud-www-r.redirectscheme.permanent=true"
 
 
-      - "traefik.http.routers.scud-www.rule=Host(`scud.hubix.org`) || Host(`scud.10.0.0.11`)"
-      - "traefik.http.routers.scud-www.middlewares=hubix-scud-www-r"
-      - "traefik.http.routers.scud-www.entrypoints=http"
-      - "traefik.http.routers.scud-www-ssl.rule=Host(`scud.hubix.org`) || Host(`scud.10.0.0.11`)"
-      - "traefik.http.routers.scud-www-ssl.tls=true"
-      - "traefik.http.routers.scud-www-ssl.tls.certresolver=letsEncrypt"
-      - "traefik.http.routers.scud-www-ssl.entrypoints=https"
-      - "traefik.http.services.scud-www.loadbalancer.server.scheme=http"
-      - "traefik.http.services.scud-www.loadbalancer.server.port=8000"
+      - "traefik.http.routers.skud.smit.4gain.pro.rule=Host(`scud.hubix.org`) || Host(`scud.10.0.0.11`)"
+      - "traefik.http.routers.skud.smit.4gain.pro.middlewares=hubix-scud-www-r"
+      - "traefik.http.routers.skud.smit.4gain.pro.entrypoints=http"
+      - "traefik.http.routers.skud.smit.4gain.pro-ssl.rule=Host(`scud.hubix.org`) || Host(`scud.10.0.0.11`)"
+      - "traefik.http.routers.skud.smit.4gain.pro-ssl.tls=true"
+      - "traefik.http.routers.skud.smit.4gain.pro-ssl.tls.certresolver=letsEncrypt"
+      - "traefik.http.routers.skud.smit.4gain.pro-ssl.entrypoints=https"
+      - "traefik.http.services.skud.smit.4gain.pro.loadbalancer.server.scheme=http"
+      - "traefik.http.services.skud.smit.4gain.pro.loadbalancer.server.port=8000"
 
 
     networks:

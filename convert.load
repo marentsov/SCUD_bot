@@ -1,0 +1,14 @@
+LOAD DATABASE
+    FROM sqlite:///Users/macbook/SCUDBot/scud_bot/db.sqlite3
+    INTO postgresql://localhost/scudbot_db
+
+WITH include drop, create tables, create indexes, reset sequences,
+     workers = 8, concurrency = 1,
+     multiple readers per thread, rows per range = 50000
+
+SET maintenance_work_mem to '128MB',
+    work_mem to '12MB',
+    search_path to 'public'
+
+CAST type datetime to timestamptz drop default drop not null using zero-dates-to-null,
+     type date drop default drop not null using zero-dates-to-null;

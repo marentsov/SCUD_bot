@@ -16,6 +16,8 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
+env_path = Path(__file__).resolve().parent.parent.parent / '.env.production'
+load_dotenv(env_path)
 load_dotenv()
 # Добавляем текущую директорию в PYTHONPATH
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -77,14 +79,20 @@ WSGI_APPLICATION = 'scud_bot.config.wsgi.application'
 # Database
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'scud_db',
-        'USER': 'scud_user',
-        'PASSWORD': 'scud_password',
-        'HOST': 'localhost',
-        'PORT': '5432',
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': BASE_DIR / 'db.sqlite3',
     }
 }
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.postgresql',
+#         'NAME': 'scud_db',
+#         'USER': 'scud_user',
+#         'PASSWORD': 'scud_password',
+#         'HOST': 'localhost',
+#         'PORT': '5432',
+#     }
+# }
 
 
 # Password validation
@@ -126,7 +134,7 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 SKUD_CONFIG = {
     'BASE_URL': 'http://188.92.110.218',
     'SESSION_COOKIE': os.getenv('SESSION_COOKIE'),
-    'POLL_INTERVAL': 5,  # Интервал опроса в секундах
+    'POLL_INTERVAL': 3,  # Интервал опроса в секундах
     'PAGE_SIZE': 100,
 }
 

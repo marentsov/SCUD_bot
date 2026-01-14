@@ -24,6 +24,8 @@ class EmployeeAdmin(admin.ModelAdmin):
             return "Уведомления выключены"
         return "Уведомления ВКЛ"
 
+    # TODO создать филдсетс для отображения проходок сотрудников
+
     notification_status.short_description = "Уведомления"
 
 
