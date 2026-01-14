@@ -8,6 +8,7 @@ from datetime import datetime
 
 from ..models import Employee, Terminal, Transaction
 from .bot import TelegramBot
+from .autologger import AutoLogger
 
 logger = logging.getLogger(__name__)
 
@@ -19,6 +20,7 @@ class SKUDMonitor:
         self.base_url = settings.SKUD_CONFIG['BASE_URL']
         self.session_cookie = settings.SKUD_CONFIG['SESSION_COOKIE']
         self.last_id = 0
+        self.autologger = AutoLogger(base_url=self.base_url)
 
         # Кэш
         self.employees_by_code = {}
@@ -103,6 +105,22 @@ class SKUDMonitor:
         try:
             logger.debug(f"Запрос к {url}")
             response = requests.get(url, params=params, headers=headers, timeout=15)
+
+            # если 401 - значит кука испортилась
+            if response.status_code == 401:
+                logger.warning("Обновляем куку")
+                new_cookie = self.autologger.get_new_cookie()
+
+                if new_cookie:
+                    self.session_cookie = new_cookie
+
+                    # запрос с новой кукой
+                    headers['Cookie'] = f'sessionid={new_cookie}'
+                    response = requests.get(url, params=params, headers=headers, timeout=15)
+                else:
+                    logger.error("Не удалось получить новую куку")
+                    return []
+
             response.raise_for_status()
             data = response.json()
 
@@ -114,8 +132,14 @@ class SKUDMonitor:
 
             return new_transactions
 
+        except requests.exceptions.HTTPError as e:
+            if e.response.status_code == 401:
+                logger.error("Ошибка авторизации после попытки обновления")
+            else:
+                logger.error(f"Ошибка HTTP - {e}")
+            return []
         except Exception as e:
-            logger.error(f"Ошибка запроса: {e}")
+            logger.error(f"Ошибка запроса -- {e}")
             return []
 
     def process_transaction(self, skud_data: dict):
