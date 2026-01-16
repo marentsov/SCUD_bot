@@ -48,11 +48,50 @@ class Employee(models.Model):
         """Получает ли сотрудник уведомления?"""
         return self.send_notifications and self.telegram_id is not None
 
+    def save(self, *args, **kwargs):
+        # Сохраняем сотрудника
+        is_new = self.pk is None  # Проверяем, новый ли сотрудник
+        super().save(*args, **kwargs)
+
+        # После сохранения привязываем его транзакции
+        self.link_existing_transactions()
+
+    def link_existing_transactions(self):
+        """Привязать существующие транзакции этого сотрудника"""
+        # Используем lazy relation через _meta
+        Transaction = self._meta.apps.get_model('bot', 'Transaction')
+
+        # Находим все транзакции с этим emp_code, но без привязки
+        unlinked_transactions = Transaction.objects.filter(
+            emp_code=self.emp_code,
+            employee__isnull=True
+        )
+
+        count = unlinked_transactions.count()
+        if count > 0:
+            # Привязываем
+            updated = unlinked_transactions.update(employee=self)
+
+            # Логируем
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.info(f"Автопривязка: {self.name} ({self.emp_code}) - привязано {updated} записей")
+
+            return updated
+        return 0
+
 
 class Transaction(models.Model):
     """Записи проходок СКУД"""
     skud_id = models.IntegerField(unique=True, verbose_name="ID записи в СКУД")
-    employee = models.ForeignKey(Employee, on_delete=models.CASCADE, verbose_name="Сотрудник")
+
+    # Делаем employee опциональным
+    employee = models.ForeignKey(Employee, on_delete=models.SET_NULL,
+                                 null=True, blank=True, verbose_name="Сотрудник")
+
+    # Добавляем поле для кода сотрудника
+    emp_code = models.CharField(max_length=20, blank=True, verbose_name="Код сотрудника")
+
     terminal = models.ForeignKey(Terminal, on_delete=models.CASCADE, verbose_name="Терминал")
     punch_time = models.DateTimeField(verbose_name="Время отметки")
 
@@ -71,7 +110,11 @@ class Transaction(models.Model):
 
     def __str__(self):
         action = "вход" if self.punch_state in ['0', 'I'] else "выход"
-        return f"{self.employee} - {action} в {self.punch_time.strftime('%H:%M')}"
+
+        if self.employee:
+            return f"{self.employee} - {action} в {self.punch_time.strftime('%H:%M')}"
+        else:
+            return f"Сотр. {self.emp_code} - {action} в {self.punch_time.strftime('%H:%M')}"
 
     @property
     def is_entry(self):

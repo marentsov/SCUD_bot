@@ -1,0 +1,45 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15
+    environment:
+      - POSTGRES_DB=scud_db
+      - POSTGRES_USER=scud_user
+      - POSTGRES_PASSWORD=scud_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data_dev:/var/lib/postgresql/data
+
+  web:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - DEBUG=True
+      - SESSION_COOKIE=nyxqyxux4u2zh03hhvg1f28qs91ddsvh
+      - TELEGRAM_BOT_TOKEN=8336850804:AAGy6IXcilALbnRtFLvBZLJ-XvAAMrr8q7o
+    volumes:
+      - .:/app
+    depends_on:
+      - db
+    command: >
+      sh -c "sleep 5 &&
+             python manage.py migrate &&
+             python manage.py runserver 0.0.0.0:8000"
+
+  monitor:
+    build: .
+    environment:
+      - DEBUG=True
+      - SESSION_COOKIE=nyxqyxux4u2zh03hhvg1f28qs91ddsvh
+      - TELEGRAM_BOT_TOKEN=8336850804:AAGy6IXcilALbnRtFLvBZLJ-XvAAMrr8q7o
+    volumes:
+      - .:/app
+    depends_on:
+      - db
+    command: python manage.py run_monitor
+
+volumes:
+  postgres_data_dev:

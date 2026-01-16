@@ -157,11 +157,8 @@ class SKUDMonitor:
             logger.debug(f"Пропуск терминала {terminal_id}")
             return
 
-        # Ищем сотрудника
+        # Ищем сотрудника (может быть None)
         employee = self._get_employee(emp_code)
-        if not employee:
-            logger.warning(f"Сотрудник {emp_code} не найден")
-            return
 
         # Получаем терминал
         terminal = self._get_terminal_or_create(skud_data)
@@ -173,6 +170,7 @@ class SKUDMonitor:
         if Transaction.objects.filter(skud_id=trans_id).exists():
             logger.debug(f"Дубликат ID {trans_id}, пропускаем")
             return
+
         punch_time_str = skud_data['punch_time']
         try:
             # Создаем naive datetime
@@ -184,30 +182,28 @@ class SKUDMonitor:
             aware_dt = timezone.now()
             logger.warning(f"Не удалось распарсить время '{punch_time_str}', использую текущее")
 
-        # Сохраняем транзакцию
+        # Сохраняем транзакцию с emp_code
         try:
             transaction = Transaction.objects.create(
                 skud_id=trans_id,
-                employee=employee,
+                employee=employee,  # ← Может быть None
+                emp_code=emp_code,  # ← ВСЕГДА сохраняем код сотрудника
                 terminal=terminal,
                 punch_time=aware_dt,
                 punch_state=skud_data['punch_state'],
                 verify_type=skud_data['verify_type'],
             )
 
-            logger.info(
-                f"СОХРАНЕНО: ID {trans_id} | Сотр. {emp_code} | {terminal.terminal_alias} | {action} | {punch_time[11:16]}")
+            # Логируем
+            if employee:
+                logger.info(f"СОХРАНЕНО: {employee} - {terminal.terminal_alias}")
 
-            logger.info(f"[УВЕДОМЛЕНИЕ] Проверка условий:")
-            logger.info(f"  - can_receive_notifications: {employee.can_receive_notifications}")
-            logger.info(f"  - is_monitored: {terminal.is_monitored}")
-            logger.info(f"  - telegram_id: {employee.telegram_id}")
-
-            if employee.can_receive_notifications and terminal.is_monitored:
-                logger.info(f"[УВЕДОМЛЕНИЕ] Условия выполнены, отправляю")
-                self._send_notification(employee, transaction)
+                # Отправляем уведомление если нужно
+                if employee.can_receive_notifications and terminal.is_monitored:
+                    logger.info(f"[УВЕДОМЛЕНИЕ] Отправляю {employee.name}")
+                    self._send_notification(employee, transaction)
             else:
-                logger.info(f"[УВЕДОМЛЕНИЕ] Условия НЕ выполнены, пропускаю")
+                logger.info(f"СОХРАНЕНО: Сотр. {emp_code} - {terminal.terminal_alias}")
 
         except Exception as e:
             logger.error(f"Ошибка сохранения ID {trans_id}: {e}")
