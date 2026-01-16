@@ -1,4 +1,4 @@
-vversion: '3.8'
+version: '3.8'
 
 services:
   web:
@@ -57,7 +57,7 @@ services:
     environment:
       - POSTGRES_DB=scud_db
       - POSTGRES_USER=scud_user
-      - POSTGRES_PASSWORD=${DB_PASSWORD}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}  # ← исправлено!
     networks:
       - scud_internal
     healthcheck:
