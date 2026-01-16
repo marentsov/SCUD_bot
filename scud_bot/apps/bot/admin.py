@@ -33,7 +33,9 @@ class EmployeeAdmin(admin.ModelAdmin):
         ).order_by('-punch_time').first()
 
         if last_transaction:
-            return last_transaction.punch_time.strftime('%d.%m.%Y %H:%M')
+            # Конвертируем из UTC в московское время
+            local_time = timezone.localtime(last_transaction.punch_time)
+            return local_time.strftime('%d.%m.%Y %H:%M')
         return 'Никогда'
 
     last_seen.short_description = 'Последний проход'
