@@ -173,21 +173,26 @@ class SKUDMonitor:
 
         punch_time_str = skud_data['punch_time']
         try:
-            # Создаем naive datetime
+            # Время из СКУД уже в московском (местном)
             naive_dt = datetime.strptime(punch_time_str, "%Y-%m-%d %H:%M:%S")
-            # Делаем aware (с часовым поясом)
-            aware_dt = timezone.make_aware(naive_dt, timezone.get_current_timezone())
-        except:
-            # Если ошибка - используем текущее время
+
+            # Создаем aware datetime с московским часовым поясом
+            from django.utils.timezone import get_current_timezone
+            moscow_tz = get_current_timezone()  # Europe/Moscow
+
+            # Локализуем и конвертируем в UTC для хранения
+            aware_dt = moscow_tz.localize(naive_dt, is_dst=None).astimezone(timezone.utc)
+
+        except Exception as e:
             aware_dt = timezone.now()
-            logger.warning(f"Не удалось распарсить время '{punch_time_str}', использую текущее")
+            logger.warning(f"Не удалось распарсить время '{punch_time_str}': {e}")
 
         # Сохраняем транзакцию с emp_code
         try:
             transaction = Transaction.objects.create(
                 skud_id=trans_id,
-                employee=employee,  # ← Может быть None
-                emp_code=emp_code,  # ← ВСЕГДА сохраняем код сотрудника
+                employee=employee,
+                emp_code=emp_code,
                 terminal=terminal,
                 punch_time=aware_dt,
                 punch_state=skud_data['punch_state'],
