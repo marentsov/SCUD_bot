@@ -172,6 +172,61 @@ class TerminalAdmin(admin.ModelAdmin):
 
     transaction_count.short_description = 'Всего записей'
 
+    def get_on_site_info(self, terminal):
+        """Возвращает список сотрудников на пункте и их количество"""
+        from django.utils import timezone
+        from datetime import datetime, time
+
+        today = timezone.now().date()
+        today_start = timezone.make_aware(datetime.combine(today, time.min))
+        today_end = timezone.make_aware(datetime.combine(today, time.max))
+
+        # 1. Получаем ВСЕ события за сегодня для этого терминала
+        events_today = Transaction.objects.filter(
+            terminal=terminal,
+            punch_time__range=[today_start, today_end]
+        ).order_by('emp_code', 'punch_time')
+
+        # 2. Группируем по emp_code
+        events_by_emp = {}
+        for event in events_today:
+            emp_code = event.emp_code
+            if emp_code not in events_by_emp:
+                events_by_emp[emp_code] = []
+            events_by_emp[emp_code].append(event)
+
+        # 3. Определяем кто на пункте (алгоритм со стеком)
+        on_site_list = []
+        for emp_code, events in events_by_emp.items():
+            stack = []  # стек для входов без выхода
+            last_entry = None
+
+            for event in events:
+                if event.is_entry:  # вход
+                    stack.append(event)
+                    last_entry = event
+                else:  # выход
+                    if stack:
+                        stack.pop()  # убираем последний несбалансированный вход
+
+            # Если остались входы без выхода - сотрудник на пункте
+            if stack:
+                # Берем последний вход (самый поздний)
+                last_entry = stack[-1]
+                on_site_list.append({
+                    'emp_code': emp_code,
+                    'entry_time': last_entry.punch_time,
+                    'employee': last_entry.employee,
+                    'transaction': last_entry
+                })
+
+        return on_site_list
+
+    def _get_on_site_count(self, terminal):
+        """Подсчитать сколько человек на пункте (включая неизвестных)"""
+        on_site_list = self.get_on_site_info(terminal)
+        return len(on_site_list)
+
     def currently_on_site_count(self, obj):
         """Количество сотрудников на пункте - кликабельное число"""
         count = self._get_on_site_count(obj)
@@ -184,50 +239,6 @@ class TerminalAdmin(admin.ModelAdmin):
         return format_html('<a href="{}" title="Нажмите для просмотра списка">{}</a>', url, count)
 
     currently_on_site_count.short_description = 'На пункте'
-
-    def _get_on_site_count(self, terminal):
-        """Подсчитать сколько человек на пункте (включая неизвестных)"""
-        from django.utils import timezone
-        from datetime import datetime, time
-
-        today = timezone.now().date()
-        today_start = timezone.make_aware(datetime.combine(today, time.min))
-        today_end = timezone.make_aware(datetime.combine(today, time.max))
-
-        # Находим все входы за сегодня
-        entries_today = Transaction.objects.filter(
-            terminal=terminal,
-            punch_time__range=[today_start, today_end],
-            punch_state__in=['0', 'I']
-        ).order_by('-punch_time')
-
-        # Находим все выходы за сегодня
-        exits_today = Transaction.objects.filter(
-            terminal=terminal,
-            punch_time__range=[today_start, today_end],
-            punch_state__in=['1', 'O']
-        )
-
-        # Создаем словари: идентификатор -> время входа/выхода
-        # Используем emp_code как идентификатор для всех
-        entries_dict = {}
-        for entry in entries_today:
-            identifier = entry.emp_code  # Используем код сотрудника
-            entries_dict[identifier] = entry.punch_time
-
-        exits_dict = {}
-        for exit_tr in exits_today:
-            identifier = exit_tr.emp_code
-            exits_dict[identifier] = exit_tr.punch_time
-
-        # Считаем кто не вышел
-        count = 0
-        for identifier, entry_time in entries_dict.items():
-            exit_time = exits_dict.get(identifier)
-            if not exit_time or entry_time > exit_time:
-                count += 1
-
-        return count
 
     def get_urls(self):
         """Добавляем URL для детальной страницы"""
@@ -250,60 +261,23 @@ class TerminalAdmin(admin.ModelAdmin):
 
         terminal = get_object_or_404(Terminal, id=object_id)
 
-        today = timezone.now().date()
-        today_start = timezone.make_aware(datetime.combine(today, time.min))
-        today_end = timezone.make_aware(datetime.combine(today, time.max))
+        # Используем общую функцию
+        on_site_list_data = self.get_on_site_info(terminal)
 
-        # Находим все входы за сегодня
-        entries_today = Transaction.objects.filter(
-            terminal=terminal,
-            punch_time__range=[today_start, today_end],
-            punch_state__in=['0', 'I']
-        ).order_by('-punch_time')
-
-        # Находим все выходы за сегодня
-        exits_today = Transaction.objects.filter(
-            terminal=terminal,
-            punch_time__range=[today_start, today_end],
-            punch_state__in=['1', 'O']
-        )
-
-        # Определяем кто сейчас на пункте
+        # Преобразуем в формат для шаблона
         on_site_list = []
-
-        # Создаем словари
-        entries_dict = {}
-        for entry in entries_today:
-            identifier = entry.emp_code
-            if identifier not in entries_dict or entry.punch_time > entries_dict[identifier]['entry_time']:
-                entries_dict[identifier] = {
-                    'transaction': entry,
-                    'entry_time': entry.punch_time,
-                    'emp_code': entry.emp_code,
-                    'employee': entry.employee  # может быть None
-                }
-
-        exits_dict = {}
-        for exit_tr in exits_today:
-            identifier = exit_tr.emp_code
-            if identifier not in exits_dict or exit_tr.punch_time > exits_dict[identifier]:
-                exits_dict[identifier] = exit_tr.punch_time
-
-        # Формируем список
-        for identifier, entry_data in entries_dict.items():
-            exit_time = exits_dict.get(identifier)
-            entry_time = entry_data['entry_time']
-
-            if not exit_time or entry_time > exit_time:
-                on_site_list.append(entry_data)
-
-        # Сортируем по времени входа (сначала последние)
-        on_site_list.sort(key=lambda x: x['entry_time'], reverse=True)
+        for item in on_site_list_data:
+            on_site_list.append({
+                'emp_code': item['emp_code'],
+                'entry_time': item['entry_time'],
+                'employee': item['employee'],
+                'transaction': item['transaction']
+            })
 
         context = {
             'terminal': terminal,
             'on_site_list': on_site_list,
-            'today': today.strftime('%d.%m.%Y'),
+            'today': timezone.now().date().strftime('%d.%m.%Y'),
             'current_time': timezone.now().strftime('%H:%M'),
         }
 
