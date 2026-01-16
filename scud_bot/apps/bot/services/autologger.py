@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 class AutoLogger:
     """ класс автоматически получающий куку """
 
-    def __init__(self, base_url: str = "http://188.92.110.21"):
+    def __init__(self, base_url: str = "http://188.92.110.218"):
         self.base_url = base_url
         self.session = requests.Session()
         self.user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
