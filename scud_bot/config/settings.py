@@ -91,7 +91,7 @@ DATABASES = {
         'NAME': 'scud_db',
         'USER': 'scud_user',
         'PASSWORD': 'scud_password',
-        'HOST': 'localhost',
+        'HOST': 'db',
         'PORT': '5432',
     }
 }
