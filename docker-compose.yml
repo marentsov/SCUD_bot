@@ -1,51 +1,47 @@
-version: '3.8'
+vversion: '3.8'
 
 services:
   web:
     build: .
     labels:
       - "traefik.enable=true"
-      - "traefik.docker.network=net_squd"
+      - "traefik.docker.network=net_scud"
 
-      - "traefik.http.middlewares.scud-www-r.redirectscheme.scheme=https"
-      - "traefik.http.middlewares.scud-www-r.redirectscheme.permanent=true"
+      - "traefik.http.middlewares.scud-https-redirect.redirectscheme.scheme=https"
+      - "traefik.http.middlewares.scud-https-redirect.redirectscheme.permanent=true"
 
+      - "traefik.http.routers.scud-web-http.rule=Host(`scud.smit.4gain.pro`)"
+      - "traefik.http.routers.scud-web-http.entrypoints=http"
+      - "traefik.http.routers.scud-web-http.middlewares=scud-https-redirect"
 
-      - "traefik.http.routers.skud.smit.4gain.pro.rule=Host(`scud.hubix.org`) || Host(`scud.10.0.0.11`)"
-      - "traefik.http.routers.skud.smit.4gain.pro.middlewares=hubix-scud-www-r"
-      - "traefik.http.routers.skud.smit.4gain.pro.entrypoints=http"
-      - "traefik.http.routers.skud.smit.4gain.pro-ssl.rule=Host(`scud.hubix.org`) || Host(`scud.10.0.0.11`)"
-      - "traefik.http.routers.skud.smit.4gain.pro-ssl.tls=true"
-      - "traefik.http.routers.skud.smit.4gain.pro-ssl.tls.certresolver=letsEncrypt"
-      - "traefik.http.routers.skud.smit.4gain.pro-ssl.entrypoints=https"
-      - "traefik.http.services.skud.smit.4gain.pro.loadbalancer.server.scheme=http"
-      - "traefik.http.services.skud.smit.4gain.pro.loadbalancer.server.port=8000"
-
+      - "traefik.http.routers.scud-web-https.rule=Host(`scud.smit.4gain.pro`)"
+      - "traefik.http.routers.scud-web-https.entrypoints=https"
+      - "traefik.http.routers.scud-web-https.tls=true"
+      - "traefik.http.routers.scud-web-https.tls.certresolver=letsencrypt"
+      - "traefik.http.services.scud-web.loadbalancer.server.port=8000"
 
     networks:
       - net_scud
-      - net_scud_www
-    environment:
-      - DEBUG=False
+      - scud_internal
+    env_file:
+      - .env.production
     depends_on:
       db:
         condition: service_healthy
     volumes:
       - static_volume:/app/staticfiles
       - media_volume:/app/media
-    env_file:
-      - .env.production
     restart: unless-stopped
     command: >
       sh -c "sleep 10 &&
              python manage.py migrate &&
-             python manage.py collectstatic --noinput &&  
+             python manage.py collectstatic --noinput &&
              gunicorn scud_bot.config.wsgi:application --bind 0.0.0.0:8000 --workers 3"
 
   bot:
     build: .
     networks:
-      - net_scud
+      - scud_internal
     env_file:
       - .env.production
     restart: unless-stopped
@@ -53,27 +49,6 @@ services:
     depends_on:
       db:
         condition: service_healthy
-
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-
-
-  monitor:
-    build: .
-    networks:
-      - net_scud
-    env_file:
-      - .env.production
-    restart: unless-stopped
-    command: python manage.py run_monitor
-    depends_on:
-      db:
-        condition: service_healthy
-      bot:
-        condition: service_started
 
   db:
     image: postgres:15
@@ -83,14 +58,14 @@ services:
       - POSTGRES_DB=scud_db
       - POSTGRES_USER=scud_user
       - POSTGRES_PASSWORD=${DB_PASSWORD}
-    restart: unless-stopped
+    networks:
+      - scud_internal
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U hubix_scud_user -d hubix_scud_db"]
+      test: ["CMD-SHELL", "pg_isready -U scud_user -d scud_db"]
       interval: 5s
       timeout: 5s
       retries: 10
-    networks:
-      - net_scud
+    restart: unless-stopped
 
 volumes:
   postgres_data:
@@ -99,6 +74,6 @@ volumes:
 
 networks:
   net_scud:
-  net_scud_www:
-    driver: overlay
     external: true
+  scud_internal:
+    driver: bridge
