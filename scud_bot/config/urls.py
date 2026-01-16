@@ -16,7 +16,10 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path
+from scud_bot.apps.bot.api import json_report, download_backup
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+    path('api/json_report/', json_report, name='json_report'),
+    path('api/download_backup/', download_backup, name='download_backup'),
 ]

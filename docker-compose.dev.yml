@@ -33,7 +33,7 @@ services:
     build: .
     environment:
       - DEBUG=True
-      - SESSION_COOKIE=nyxqyxux4u2zh03hhvg1f28qs91ddsvh
+      - SESSION_COOKIE=gtnw8geu601rjnsshlcv3ymj41mqshhp
       - TELEGRAM_BOT_TOKEN=8336850804:AAGy6IXcilALbnRtFLvBZLJ-XvAAMrr8q7o
     volumes:
       - .:/app
