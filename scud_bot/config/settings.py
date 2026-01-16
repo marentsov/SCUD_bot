@@ -31,7 +31,6 @@ SECRET_KEY = 'django-insecure-+zy!h4=ykal-xj3-j7@%mz_=(6u^_a%5=dq@uf&=k@gp@6^3oc
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['*']
 
 # Application definition
 INSTALLED_APPS = [
@@ -182,3 +181,15 @@ LOGGING = {
         },
     },
 }
+
+ALLOWED_HOSTS = ['scud.smit.4gain.pro', 'localhost', '127.0.0.1']
+
+
+CSRF_TRUSTED_ORIGINS = [
+    'https://scud.smit.4gain.pro',
+    'http://scud.smit.4gain.pro',
+]
+
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+USE_X_FORWARDED_HOST = True
+USE_X_FORWARDED_PORT = True
