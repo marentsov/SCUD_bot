@@ -175,7 +175,7 @@ class TerminalAdmin(admin.ModelAdmin):
     transaction_count.short_description = 'Всего записей'
 
     def get_on_site_info(self, terminal):
-        """Возвращает список сотрудников на пункте и их количество"""
+        """Возвращает список сотрудников на пункте (простая логика)"""
         from django.utils import timezone
         from datetime import datetime, time
 
@@ -183,49 +183,38 @@ class TerminalAdmin(admin.ModelAdmin):
         today_start = timezone.make_aware(datetime.combine(today, time.min))
         today_end = timezone.make_aware(datetime.combine(today, time.max))
 
-        # 1. Получаем ВСЕ события за сегодня для этого терминала
+        # Получаем все события за сегодня
         events_today = Transaction.objects.filter(
             terminal=terminal,
             punch_time__range=[today_start, today_end]
-        ).order_by('emp_code', 'punch_time')
+        )
 
-        # 2. Группируем по emp_code
-        events_by_emp = {}
-        for event in events_today:
-            emp_code = event.emp_code
-            if emp_code not in events_by_emp:
-                events_by_emp[emp_code] = []
-            events_by_emp[emp_code].append(event)
-
-        # 3. Определяем кто на пункте (алгоритм со стеком)
+        # Находим последнее событие для каждого сотрудника
         on_site_list = []
-        for emp_code, events in events_by_emp.items():
-            stack = []  # стек для входов без выхода
-            last_entry = None
+        processed_codes = set()
 
-            for event in events:
-                if event.is_entry:  # вход
-                    stack.append(event)
-                    last_entry = event
-                else:  # выход
-                    if stack:
-                        stack.pop()  # убираем последний несбалансированный вход
+        # Сортируем по времени убывания чтобы взять последние записи
+        for event in events_today.order_by('-punch_time'):
+            emp_code = event.emp_code
 
-            # Если остались входы без выхода - сотрудник на пункте
-            if stack:
-                # Берем последний вход (самый поздний)
-                last_entry = stack[-1]
+            if emp_code in processed_codes:
+                continue
+
+            processed_codes.add(emp_code)
+
+            # Если последнее событие - вход, сотрудник на пункте
+            if event.is_entry:
                 on_site_list.append({
                     'emp_code': emp_code,
-                    'entry_time': last_entry.punch_time,
-                    'employee': last_entry.employee,
-                    'transaction': last_entry
+                    'entry_time': event.punch_time,
+                    'employee': event.employee,
+                    'transaction': event
                 })
 
         return on_site_list
 
     def _get_on_site_count(self, terminal):
-        """Подсчитать сколько человек на пункте (включая неизвестных)"""
+        """Подсчитать сколько человек на пункте"""
         on_site_list = self.get_on_site_info(terminal)
         return len(on_site_list)
 
@@ -236,14 +225,12 @@ class TerminalAdmin(admin.ModelAdmin):
         if count == 0:
             return format_html('<span style="color: gray;">0</span>')
 
-        # Ссылка на детальную страницу
         url = f'/admin/bot/terminal/{obj.id}/on_site/'
         return format_html('<a href="{}" title="Нажмите для просмотра списка">{}</a>', url, count)
 
     currently_on_site_count.short_description = 'На пункте'
 
     def get_urls(self):
-        """Добавляем URL для детальной страницы"""
         from django.urls import path
         urls = super().get_urls()
         custom_urls = [
@@ -256,22 +243,21 @@ class TerminalAdmin(admin.ModelAdmin):
         return custom_urls + urls
 
     def on_site_view(self, request, object_id):
-        """Страница со списком сотрудников на пункте (включая неизвестных)"""
-        from django.utils import timezone
-        from datetime import datetime, time
         from django.shortcuts import render, get_object_or_404
+        from django.utils import timezone
 
         terminal = get_object_or_404(Terminal, id=object_id)
 
-        # Используем общую функцию
         on_site_list_data = self.get_on_site_info(terminal)
 
-        # Преобразуем в формат для шаблона
+        # Конвертируем время в локальное
         on_site_list = []
         for item in on_site_list_data:
+            local_entry_time = timezone.localtime(item['entry_time'])
+
             on_site_list.append({
                 'emp_code': item['emp_code'],
-                'entry_time': item['entry_time'],
+                'entry_time': local_entry_time,
                 'employee': item['employee'],
                 'transaction': item['transaction']
             })
@@ -279,8 +265,8 @@ class TerminalAdmin(admin.ModelAdmin):
         context = {
             'terminal': terminal,
             'on_site_list': on_site_list,
-            'today': timezone.now().date().strftime('%d.%m.%Y'),
-            'current_time': timezone.now().strftime('%H:%M'),
+            'today': timezone.localtime(timezone.now()).date().strftime('%d.%m.%Y'),
+            'current_time': timezone.localtime(timezone.now()).strftime('%H:%M'),
         }
 
         return render(request, 'admin/terminal_on_site.html', context)
