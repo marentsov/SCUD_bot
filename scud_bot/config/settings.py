@@ -130,7 +130,7 @@ STATICFILES_DIRS = [
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 
-# Настройки для СКУД системы
+# настройки для СКУД системы
 SKUD_CONFIG = {
     'BASE_URL': 'http://188.92.110.218',
     'SESSION_COOKIE': os.getenv('SESSION_COOKIE'),
@@ -138,11 +138,11 @@ SKUD_CONFIG = {
     'PAGE_SIZE': 100,
 }
 
-# Настройки для бота
+# настройки для бота
 TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
 TELEGRAM_POLL_INTERVAL = 2
 
-# Логирование
+# логирование
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
