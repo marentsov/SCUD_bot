@@ -46,6 +46,20 @@ services:
       db:
         condition: service_healthy
 
+  monitor:
+    build: .
+    networks:
+      - scud_internal
+    env_file:
+      - .env.production
+    restart: unless-stopped
+    command: python manage.py run_monitor
+    depends_on:
+      db:
+        condition: service_healthy
+      web:
+        condition: service_started
+
   db:
     image: postgres:15
     volumes:
