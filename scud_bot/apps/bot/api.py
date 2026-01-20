@@ -118,7 +118,7 @@ def download_backup(request):
 
         http_response = HttpResponse(
             json.dumps(data, ensure_ascii=False, indent=2),
-            content_type='application/json'
+            content_type='application/octet-stream'
         )
         http_response['Content-Disposition'] = f'attachment; filename="{filename}"'
 
