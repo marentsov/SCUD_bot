@@ -107,7 +107,7 @@ def download_backup(request):
         url = f"{base_url}/iclock/api/transactions/"
         params = {
             'format': 'json',
-            'page_size': 30000,
+            'page_size': 10000,
             'ordering': '-id',
         }
 
