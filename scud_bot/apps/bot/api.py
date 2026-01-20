@@ -5,88 +5,105 @@ from django.http import JsonResponse, HttpResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.conf import settings
 from django.utils import timezone
+import logging
+
+from .services.autologger import AutoLogger
+
+logger = logging.getLogger(__name__)
+
+
+def _fetch_scud_data(url, params, session_cookie, max_retries=2):
+    """ Утилита для запросов к СКУД с автополучением куки """
+    for attempt in range(max_retries):
+        try:
+            cookies = {'sessionid': session_cookie}
+
+            response = requests.get(
+                url,
+                params=params,
+                cookies=cookies,
+                timeout=30
+            )
+
+            # Успех
+            if response.status_code == 200:
+                return response
+
+            # Сессия умерла - обновляем куку
+            if response.status_code == 401 and attempt < max_retries - 1:
+                logger.info("Сессия истекла, получаем новую куку...")
+
+                base_url = settings.SKUD_CONFIG['BASE_URL']
+                autologger = AutoLogger(base_url=base_url)
+                new_cookie = autologger.get_new_cookie()
+
+                if new_cookie:
+                    session_cookie = new_cookie
+                    logger.info("Кука обновлена")
+                    continue
+                else:
+                    raise Exception("Не удалось получить новую куку")
+
+            # Другие ошибки - сразу падаем
+            response.raise_for_status()
+
+        except requests.exceptions.RequestException as e:
+            if attempt < max_retries - 1:
+                logger.warning(f"Ошибка запроса, пробуем снова: {e}")
+                continue
+            raise
+
+    raise Exception("Все попытки запроса исчерпаны")
 
 
 @csrf_exempt
 def json_report(request):
-    """
-    API для получения JSON отчета из СКУД системы
-    Доступно по: https://scud.smit.4gain.pro/api/json_report
-    """
+    """ API для получения JSON отчета из СКУД системы """
     try:
-        # Получаем настройки из конфигурации
-        base_url = settings.SKUD_CONFIG.get('BASE_URL', 'http://188.92.110.218')
-        session_cookie = settings.SKUD_CONFIG.get('SESSION_COOKIE')
+        base_url = settings.SKUD_CONFIG['BASE_URL']
+        session_cookie = settings.SKUD_CONFIG['SESSION_COOKIE']
 
         if not session_cookie:
             return JsonResponse({
-                'error': 'Сессионная кука не настроена',
+                'error': 'Кука не настроена',
                 'code': 500
             }, status=500)
 
-        # Параметры запроса из GET-параметров или по умолчанию
-        page_size = request.GET.get('page_size', 1000)
-        ordering = request.GET.get('ordering', '-id')
-        format_type = request.GET.get('format', 'json')
-
-        # Формируем URL
         url = f"{base_url}/iclock/api/transactions/"
         params = {
-            'format': format_type,
-            'page_size': page_size,
-            'ordering': ordering,
+            'format': request.GET.get('format', 'json'),
+            'page_size': request.GET.get('page_size', 1000),
+            'ordering': request.GET.get('ordering', '-id'),
         }
 
-        # Куки
-        cookies = {
-            'sessionid': session_cookie
-        }
-
-        # Делаем запрос
-        response = requests.get(url, params=params, cookies=cookies, timeout=30)
-        response.raise_for_status()
-
+        response = _fetch_scud_data(url, params, session_cookie)
         data = response.json()
 
-        # Возвращаем JSON
         return JsonResponse({
             'success': True,
             'data': data.get('data', []),
             'count': data.get('count', 0),
             'timestamp': timezone.now().isoformat(),
-            'source_url': url,
-            'parameters': params
         })
 
-    except requests.exceptions.RequestException as e:
-        return JsonResponse({
-            'error': f'Ошибка подключения к СКУД: {str(e)}',
-            'code': 503
-        }, status=503)
     except Exception as e:
+        logger.error(f"Ошибка json_report: {e}")
         return JsonResponse({
-            'error': f'Внутренняя ошибка: {str(e)}',
+            'error': str(e),
             'code': 500
         }, status=500)
 
 
 @csrf_exempt
 def download_backup(request):
-    """
-    Скачать полный бэкап как файл (аналог твоего скрипта)
-    Доступно по: https://scud.smit.4gain.pro/api/download_backup
-    """
+    """ Скачать полный бэкап как файл """
     try:
-        from django.utils import timezone
-        import datetime
-
-        base_url = settings.SKUD_CONFIG.get('BASE_URL', 'http://188.92.110.218')
-        session_cookie = settings.SKUD_CONFIG.get('SESSION_COOKIE')
+        base_url = settings.SKUD_CONFIG['BASE_URL']
+        session_cookie = settings.SKUD_CONFIG['SESSION_COOKIE']
 
         if not session_cookie:
-            return HttpResponse('Сессионная кука не настроена', status=500)
+            return HttpResponse('Кука не настроена', status=500)
 
-        # Делаем запрос за всеми данными
         url = f"{base_url}/iclock/api/transactions/"
         params = {
             'format': 'json',
@@ -94,19 +111,11 @@ def download_backup(request):
             'ordering': '-id',
         }
 
-        cookies = {
-            'sessionid': session_cookie
-        }
-
-        response = requests.get(url, params=params, cookies=cookies, timeout=60)
-        response.raise_for_status()
-
+        response = _fetch_scud_data(url, params, session_cookie, max_retries=3)
         data = response.json()
 
-        # Создаем имя файла
-        filename = f"skud_backup_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+        filename = f"sсud_backup_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
 
-        # Возвращаем как файл для скачивания
         http_response = HttpResponse(
             json.dumps(data, ensure_ascii=False, indent=2),
             content_type='application/json'
@@ -116,6 +125,7 @@ def download_backup(request):
         return http_response
 
     except Exception as e:
+        logger.error(f"Ошибка download_backup: {e}")
         return JsonResponse({
             'error': str(e),
             'code': 500
