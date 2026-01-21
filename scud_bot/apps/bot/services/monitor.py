@@ -142,6 +142,7 @@ class SKUDMonitor:
             logger.error(f"Ошибка запроса -- {e}")
             return []
 
+
     def process_transaction(self, skud_data: dict):
         """Обработать одну транзакцию"""
         trans_id = skud_data.get('id')
@@ -173,15 +174,11 @@ class SKUDMonitor:
 
         punch_time_str = skud_data['punch_time']
         try:
-            # Время из СКУД уже в московском (местном)
+            # Время из СКУД уже в московском
             naive_dt = datetime.strptime(punch_time_str, "%Y-%m-%d %H:%M:%S")
 
-            # Создаем aware datetime с московским часовым поясом
-            from django.utils.timezone import get_current_timezone
-            moscow_tz = get_current_timezone()  # Europe/Moscow
-
-            # Локализуем и конвертируем в UTC для хранения
-            aware_dt = moscow_tz.localize(naive_dt, is_dst=None).astimezone(timezone.utc)
+            # ФИКС: Просто делаем aware (будет московское время)
+            aware_dt = timezone.make_aware(naive_dt)
 
         except Exception as e:
             aware_dt = timezone.now()
@@ -215,12 +212,13 @@ class SKUDMonitor:
             import traceback
             logger.error(traceback.format_exc())
 
-
     def _send_notification(self, employee: Employee, transaction: Transaction):
         """Отправить уведомление"""
         try:
             action = "вход" if transaction.is_entry else "выход"
             location = transaction.terminal.terminal_alias
+
+            # transaction.punch_time уже в московском времени
             time_str = transaction.punch_time.strftime('%H:%M')
             date_str = transaction.punch_time.strftime('%d.%m.%Y')
 
