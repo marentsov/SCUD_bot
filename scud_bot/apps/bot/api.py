@@ -25,11 +25,11 @@ def _fetch_scud_data(url, params, session_cookie, max_retries=2):
                 timeout=30
             )
 
-            # Успех
+            # успех
             if response.status_code == 200:
                 return response
 
-            # Сессия умерла - обновляем куку
+            # сессия умерла - обновляем куку
             if response.status_code == 401 and attempt < max_retries - 1:
                 logger.info("Сессия истекла, получаем новую куку...")
 
@@ -44,7 +44,7 @@ def _fetch_scud_data(url, params, session_cookie, max_retries=2):
                 else:
                     raise Exception("Не удалось получить новую куку")
 
-            # Другие ошибки - сразу падаем
+            # другие ошибки - сразу падаем
             response.raise_for_status()
 
         except requests.exceptions.RequestException as e:
