@@ -54,7 +54,20 @@ class SKUDMonitor:
 
     def _get_employee(self, emp_code: str) -> Optional[Employee]:
         """Найти сотрудника по коду"""
-        return self.employees_by_code.get(emp_code)
+        # поиск сотрудника в кеше
+        employee = self.employees_by_code.get(emp_code)
+
+        # если нет в кеше, проверяем не добавили ли его
+        if not employee and emp_code:  # emp_code может быть пустым
+            try:
+                employee = Employee.objects.get(emp_code=emp_code)
+                # добавляем в кеш
+                self.employees_by_code[emp_code] = employee
+                logger.info(f"Найден новый сотрудник в БД - {employee.name} ({emp_code})")
+            except Employee.DoesNotExist:
+                pass
+
+        return employee
 
     def _should_process_terminal(self, terminal_id: int) -> bool:
         """Нужно ли обрабатывать этот терминал?"""
