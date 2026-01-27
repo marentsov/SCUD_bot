@@ -14,11 +14,12 @@ from .models import Transaction, Employee, Terminal
 @admin.register(Employee)
 class EmployeeAdmin(admin.ModelAdmin):
     list_display = ['emp_code', 'name', 'telegram_username',
-                    'send_notifications', 'transaction_count_link',
+                    'send_notifications', 'auto_logout', 'transaction_count_link',
                     'last_seen', 'status', 'unlinked_count']
-    list_filter = ['send_notifications']
+    list_filter = ['send_notifications', 'auto_logout']
     search_fields = ['name', 'emp_code', 'telegram_username']
-    actions = ['enable_notifications', 'disable_notifications', 'link_transactions']
+    actions = ['enable_notifications', 'disable_notifications', 'link_transactions',
+               'enable_auto_logout', 'disable_auto_logout']
 
     def transaction_count_link(self, obj):
         count = Transaction.objects.filter(employee=obj).count()
@@ -98,6 +99,18 @@ class EmployeeAdmin(admin.ModelAdmin):
             )
 
     link_transactions.short_description = "Привязать записи проходов"
+
+    def enable_auto_logout(self, request, queryset):
+        updated = queryset.update(auto_logout=True)
+        self.message_user(request, f"Автовыход включен для {updated} сотрудников")
+
+    enable_auto_logout.short_description = "Включить автовыход"
+
+    def disable_auto_logout(self, request, queryset):
+        updated = queryset.update(auto_logout=False)
+        self.message_user(request, f"Автовыход выключен для {updated} сотрудников")
+
+    disable_auto_logout.short_description = "Выключить автовыход"
 
 
 @admin.register(Transaction)

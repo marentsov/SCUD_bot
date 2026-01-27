@@ -24,6 +24,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      redis:
+        condition: service_healthy
     volumes:
       - static_volume:/app/staticfiles
       - media_volume:/app/media
@@ -60,6 +62,69 @@ services:
       web:
         condition: service_started
 
+  redis:
+    image: redis:7-alpine
+    container_name: scud_redis
+    networks:
+      - scud_internal
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-scud_redis_pass}
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+
+  celery_worker:
+    build: .
+    container_name: scud_celery_worker
+    networks:
+      - scud_internal
+    env_file:
+      - .env.production
+    command: >
+      sh -c "sleep 15 &&
+             echo 'Запуск Celery worker...' &&
+             celery -A scud_bot worker --loglevel=info --concurrency=2"
+    depends_on:
+      - db
+      - redis
+      - web
+    volumes:
+      - static_volume:/app/staticfiles
+      - media_volume:/app/media
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "celery -A scud_bot inspect ping -d celery@$$HOSTNAME || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  celery_beat:
+    build: .
+    container_name: scud_celery_beat
+    networks:
+      - scud_internal
+    env_file:
+      - .env.production
+    command: >
+      sh -c "sleep 20 &&
+             echo 'Запуск Celery beat...' &&
+             celery -A scud_bot beat --loglevel=info --pidfile=/tmp/celerybeat.pid --scheduler django_celery_beat.schedulers:DatabaseScheduler"
+    depends_on:
+      - db
+      - redis
+      - web
+      - celery_worker
+    volumes:
+      - static_volume:/app/staticfiles
+      - media_volume:/app/media
+      - celery_beat_data:/tmp
+    restart: unless-stopped
+
   db:
     image: postgres:15
     volumes:
@@ -81,6 +146,8 @@ volumes:
   postgres_data:
   static_volume:
   media_volume:
+  redis_data:
+  celery_beat_data:
 
 networks:
   net_scud:

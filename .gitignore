@@ -1,4 +1,5 @@
 .env.production
+.env.dev
 
 scud_backup.py
 

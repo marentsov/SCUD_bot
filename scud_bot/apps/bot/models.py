@@ -32,6 +32,9 @@ class Employee(models.Model):
     # Настройки уведомлений
     send_notifications = models.BooleanField(default=False, verbose_name="Отправлять уведомления")
 
+    # Настройки автоматического выхода
+    auto_logout = models.BooleanField(default=False, verbose_name="Автоматический выход", help_text="Автоматический выход в 23:55 если сотрудник остался на пункте")
+
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Дата создания")
 
     class Meta:

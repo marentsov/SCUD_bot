@@ -11,6 +11,24 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data_dev:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U scud_user -d scud_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data_dev:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
 
   web:
     build: .
@@ -23,11 +41,25 @@ services:
     volumes:
       - .:/app
     depends_on:
-      - db
+      db:
+        condition: service_healthy
     command: >
       sh -c "sleep 5 &&
              python manage.py migrate &&
              python manage.py runserver 0.0.0.0:8000"
+
+  bot:
+    build: .
+    environment:
+      - DEBUG=True
+      - SESSION_COOKIE=nyxqyxux4u2zh03hhvg1f28qs91ddsvh
+      - TELEGRAM_BOT_TOKEN=8336850804:AAGy6IXcilALbnRtFLvBZLJ-XvAAMrr8q7o
+    volumes:
+      - .:/app
+    depends_on:
+      db:
+        condition: service_healthy
+    command: python manage.py run_bot
 
   monitor:
     build: .
@@ -38,8 +70,45 @@ services:
     volumes:
       - .:/app
     depends_on:
-      - db
+      db:
+        condition: service_healthy
     command: python manage.py run_monitor
+
+  celery_worker:
+    build: .
+    environment:
+      - DEBUG=True
+      - SESSION_COOKIE=nyxqyxux4u2zh03hhvg1f28qs91ddsvh
+      - TELEGRAM_BOT_TOKEN=8336850804:AAGy6IXcilALbnRtFLvBZLJ-XvAAMrr8q7o
+    volumes:
+      - .:/app
+    depends_on:
+      - db
+      - redis
+      - web
+    command: >
+      sh -c "sleep 10 &&
+             echo 'Запуск Celery worker в DEV режиме...' &&
+             celery -A scud_bot worker --loglevel=info --concurrency=1"
+
+  celery_beat:
+    build: .
+    environment:
+      - DEBUG=True
+      - SESSION_COOKIE=nyxqyxux4u2zh03hhvg1f28qs91ddsvh
+      - TELEGRAM_BOT_TOKEN=8336850804:AAGy6IXcilALbnRtFLvBZLJ-XvAAMrr8q7o
+    volumes:
+      - .:/app
+    depends_on:
+      - db
+      - redis
+      - web
+      - celery_worker
+    command: >
+      sh -c "sleep 15 &&
+             echo 'Запуск Celery beat в DEV режиме...' &&
+             celery -A scud_bot beat --loglevel=info"
 
 volumes:
   postgres_data_dev:
+  redis_data_dev:
