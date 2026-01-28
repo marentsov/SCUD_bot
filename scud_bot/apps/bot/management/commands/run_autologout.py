@@ -50,7 +50,7 @@ class Command(BaseCommand):
             current_hour = target_time.hour
             current_minute = target_time.minute
 
-            if not (current_hour == 18 and current_minute == 7):
+            if not (current_hour == 11 and current_minute == 32):
                 self.stdout.write(
                     "Внимание: сейчас не время автоматического выхода (23:40-23:59)\n"
                     "Используйте --force для принудительного выполнения"

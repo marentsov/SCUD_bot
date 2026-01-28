@@ -90,7 +90,7 @@ DATABASES = {
         'ENGINE': 'django.db.backends.postgresql',
         'NAME': 'scud_db',
         'USER': 'scud_user',
-        'PASSWORD': 'scud_pass',
+        'PASSWORD': 'scud_password',
         'HOST': 'db',
         'PORT': '5432',
     }

@@ -16,9 +16,10 @@ app.autodiscover_tasks()
 app.conf.beat_schedule = {
     'auto-logout-daily-2350': {
         'task': 'scud_bot.apps.bot.tasks.daily_auto_logout',
-        'schedule': crontab(hour=18, minute=7),
+        'schedule': crontab(hour=11, minute=32),
         'args': (),
     },
 }
 
 app.conf.timezone = 'Europe/Moscow'
+app.conf.enable_utc = False

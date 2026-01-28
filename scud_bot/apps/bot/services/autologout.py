@@ -16,8 +16,11 @@ class AutoLogoutService:
     def __init__(self):
         self.base_url = settings.SKUD_CONFIG['BASE_URL']
         self.headers = {
-            'User-Agent': 'Mozilla/5.0',
-            'Content-Type': 'text/plain;charset=UTF-8',
+            "Host": "http",
+            "User-Agent": "iClock Proxy/1.09",
+            "Connection": "close",
+            "Accept": "*/*",
+            "Content-Type": "text/plain;charset=UTF-8",
         }
 
     def get_employees_on_site_today(self, target_date=None):
@@ -99,12 +102,34 @@ class AutoLogoutService:
                 timeout=15
             )
 
-            logger.info(f"Ответ СКУД: статус {response.status_code}, текст: {response.text}")
-            return True, response.text
+            logger.info(f"Ответ СКУД: статус {response.status_code}")
+
+            # Пробуем получить текст ответа
+            try:
+                response_text = response.text
+                logger.info(f"Текст ответа: {response_text}")
+            except UnicodeDecodeError:
+                # Если ответ бинарный, выводим hex
+                logger.info(f"Бинарный ответ: {response.content.hex()}")
+                response_text = "binary_response"
+
+            # Проверяем успешный ответ (часто СКУД возвращает OK или пустой ответ)
+            if response.status_code == 200:
+                # Проверяем содержимое ответа
+                if "OK" in response_text or response_text.strip() == "" or "success" in response_text.lower():
+                    return True, response_text
+                else:
+                    logger.warning(f"Странный ответ от СКУД: {response_text}")
+                    return False, f"Unexpected response: {response_text}"
+            else:
+                return False, f"HTTP {response.status_code}: {response_text}"
 
         except requests.Timeout:
             logger.error("Таймаут при отправке запроса на выход")
             return False, "Request timed out"
+        except requests.RequestException as e:
+            logger.error(f"Ошибка сети при отправке запроса - {e}")
+            return False, f"Network error: {str(e)}"
         except Exception as e:
             logger.error(f"Ошибка при отправке запроса - {e}")
             return False, str(e)
@@ -221,7 +246,8 @@ class AutoLogoutService:
         current_hour = now.hour
         current_minute = now.minute
 
-        if current_hour == 18 and current_minute == 7:
+        msk_now = timezone.localtime(now)
+        if msk_now.hour == 11 and msk_now.minute == 32:
             logger.info(" Время для автовыхода (23:40-23:59)")
             return self.perform_auto_logout(now)
         else:
